@@ -1,7 +1,9 @@
 package jpabook.jpashop.domain;
 
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
@@ -13,6 +15,7 @@ import static jakarta.persistence.FetchType.*;
 @Entity
 @Table(name = "orders")
 @Getter @Setter
+@NoArgsConstructor(access =  AccessLevel.PROTECTED)
 public class Order {
     @Id
     @GeneratedValue
@@ -47,7 +50,51 @@ public class Order {
     }
 
     public void setDelivery(Delivery delivery) {
-        delivery = delivery;
-        delivery.setOrder(this);
+        this.delivery = delivery;
+        this.delivery.setOrder(this);
     }
+
+    //==생성 메서드 ==//
+    public static Order createOrder(Member member, Delivery delivery, OrderItem... orderItems) {
+        Order order = new Order();
+        order.setMember(member);
+        order.setDelivery(delivery);
+
+        for (OrderItem orderItem : orderItems) {
+            order.addOrderItem(orderItem);
+        }
+        order.setStatus(OrderStatus.ORDER);
+        order.setOrderDate(LocalDateTime.now());
+        return order;
+    }
+
+    public void cancel() {
+        if (delivery.getStats() == DeliveryStatus.COMP) {
+            throw new IllegalStateException("이미 배송완료된 상품은 취소가 불가능합니다.");
+        }
+
+        this.setStatus(OrderStatus.CANCEL);
+
+        for (OrderItem orderItem : orderItems) {
+            orderItem.cancel();
+        }
+    }
+
+    //==조회 로직==//
+    public int getTotalPrice() {
+        int totalPrice = 0;
+
+        for (OrderItem orderItem : orderItems) {
+            totalPrice += orderItem.getTotalPrice();
+        }
+        return totalPrice;
+    }
+
 }
+
+/**
+ * 도메인 모델 패턴
+ * 서비스 계층은 단순히 엔티티에 필요한 요청을 위임하는 역할을 한다. (비즈니스 로직 대부분이 엔티티에 있다)
+ * 이처럼, 엔티티가 비즈니스 로직을 가지고 객체 지ㅣ향의 특성을 적극 활용하는 것을 도메인 모델 패턴이라 한다.
+ * 반대로 엔티티에는 비즈니스 로직이 거의 없고 서비스 계층에서 대부분의 비즈니스 로직을 처리하는 것을 트랜잭션 스크립트 패턴이라한다.
+ */
